@@ -1,0 +1,211 @@
+#!/usr/bin/env bash
+#*.*encoding=utf-8*.*
+
+#  CONTSTANTS
+EXIT_OK=0
+EXIT_BAD=66
+
+BOLD="\033[1m"
+NC="\033[0m"
+RED="\033[31m"
+
+#  DEFINED VARIABLES
+
+# BASE
+: BASE is the directory to dump and later restore data
+: for example: BASE="/home/pedro"
+#
+BASE="/home/pedro"
+
+# TARGET
+: TARGET is the directory when store dump data
+: for example: TARGET="/media/pedro/Archivos"
+#
+TARGET="/media/pedro/Archivos"
+
+# FOLDER
+: FOLDER is the directory in TARGET to dump data
+: for example: FOLDER="cseg1.0"
+#
+FOLDER="cseg1.0"
+
+# FULLPREFIX
+: FULLPREFIX is the initial name of full backups file
+: for example: FULLPREFIX="fullbackup_"
+#
+FULLPREFIX="fullbackup_"
+
+# INCPREFIX
+: INCPREFIX is the initial name of incremental backup files 
+: for example: INCPREFIX="inc_backup_"
+INCPREFIX="inc_backup_"
+
+# SNAPFILE
+: SNAPFILE is the file for organizate the incremental backup
+: for example:  SNAPFILE="backup.snap"
+#
+SNAPFILE="$TARGET/$FOLDER/backup.snap"
+
+# ERRLOG
+: ERRLOG is the log file
+: for example: ERRLOG="err.log"
+#
+ERRLOG="$TARGET/$FOLDER/err.log"
+
+# INCSEARCHPREFIX
+: this is INCPREFIX plus asterisc
+: DO NOT TOUCH IT AT ALL
+INCSEARCHPREFIX="$INCPREFIX*" 
+
+# COPYRDATE
+: calculates interval of years 
+: for copyrights reasons
+: DO NOT TOUCH IT AT ALL
+#
+if [ "`date +%Y`" = "2017" ];
+	then
+		COPYRDATE="* $BOLD copyright (c)  2017 $NC    Pedro Ruiz Hidalgo   *"
+	else 
+		COPYRDATE="*$BOLD copyright (c) 2017-`date +%Y` $NC  Pedro Ruiz Hidalgo  *"
+fi
+
+#  FUNCTIONS 
+
+
+author(){
+	
+	echo -e "*************************************************"
+	echo -e "$COPYRDATE"
+	echo -e "*************************************************"
+	if [ -n "$1" ];
+		then
+			echo -e ""
+			echo -e "cseg$BOLD help$NC para ayuda"
+			echo -e ""
+		else 
+			echo ""
+	fi
+}
+
+title() {
+	clear
+	echo -e "$BOLD$RED   _____                          __        ___  "
+	echo -e "  / ____|                        /_ |      / _ \ "
+	echo -e " | |       ___    ___    __ _     | |     | | | |"
+	echo -e " | |      / __|  / _ \  / _\` |    | |     | | | |"
+	echo -e " | |____  \__ \ |  __/ | (_| |    | |  _  | |_| |"
+	echo -e "  \_____| |___/  \___|  \__, |    |_| (_)  \___/ "
+	echo -e "                         __/ |                   "
+	echo -e "                        |___/                    $NC"
+	
+	if [ -n "$1" ];
+		then
+			author 1
+		else 
+			author 
+	fi
+	}
+
+base() {
+	if [ ! -d $1 ];
+		then
+			echo -e "$BOLD $1 $NC es el directorio programado como fuente $BOLD no existe $NC"
+			exit $EXIT_BAD
+		else
+			echo -e "$1 $BOLD preparado y correcto$NC para surtir datos"
+	fi
+}
+
+target() {
+	if [ ! -d "$1" ];
+		then
+			mkdir $1
+			echo -e "$BOLD$1$NC es el directorio programado como objetivo $BOLD ha sido creado$NC"
+			exit $EXIT_BAD
+		else
+			echo -e "$1 $BOLD preparado y correcto$NC para recibir datos"
+	fi
+}
+
+help() {
+	echo -e "cseg$BOLD full$NC crea fullbackup de $RED$BASE$NC en $RED$TARGET/$FOLDER$NC"
+	echo -e "cseg$BOLD environment$NC para comprobar directorios"
+	echo -e "cseg$BOLD incremental$NC para backup incremental"
+	echo -e "cseg$BOLD restore$NC para restaurar todo"
+	echo -e ""
+	exit $EXIT_OK
+}
+
+restore_main_file() {
+	title 
+	read -p "introduce la fecha del archivo $TARGET/$FOLDER/$FULLPREFIX"
+	fullbackup="$TARGET/$FOLDER/$FULLPREFIX$REPLY.tgz"
+	echo
+	echo -e "Restaurando $fullbackup.$BOLD Este proceso es lento$NC."
+	echo -e "Iniciado a las $BOLD`date +%H:%M:%S`$NC"
+	tar -xzf "$fullbackup" -C "$BASE" 1> /dev/null 2>>"$ERRLOG"
+	echo -e "Terminado restore del fullbackup a las  $BOLD`date +%H:%M:%S`$NC"
+	echo
+}
+
+restore_inc_files() {
+	INC_FILES="ls -h1 $TARGET/$FOLDER/$INCSEARCHPREFIX"
+	echo -e "Se inician el restore de todos los$BOLD ficheros incrementales$NC"
+
+	for file in $($INC_FILES); do
+		echo -e "restaurando $file a las $BOLD`date +%H:%M:%S`$NC" " en $BASE"
+		tar --incremental -zxf "$file"
+	done
+}
+
+# PROCESS
+
+
+if [ ! "$1" ];
+	then
+		title 1
+		exit $EXIT_OK
+fi
+
+case $1 in 
+	environment)
+		title 
+		base $BASE
+		if [ ! -d "$TARGET/$FOLDER" ];
+		then
+			mkdir "$TARGET/$FOLDER"
+		fi
+		target "$TARGET/$FOLDER"
+		;;
+	
+	full)
+		title
+		echo -e "Creando full $BOLD`date +%H:%M:%S`$NC"
+		if [ ! -d "$TARGET/$FOLDER" ];
+		then
+			mkdir "$TARGET/$FOLDER"
+		fi
+		target "$TARGET/$FOLDER"
+		tar -cpvzf "$TARGET/$FOLDER/$FULLPREFIX`date +%Y%m%d`.tgz" -g "$SNAPFILE" "$BASE" 1> /dev/null 2>>"$ERRLOG"
+		echo -e "Terminado a las $BOLD`date +%H:%M:%S`$NC"
+		;;
+	
+	incremental)
+		title
+		echo -e "Creando incremental $BOLD`date +%H:%M:%S`$NC"
+		target "$TARGET/$FOLDER"
+		tar -cpvzf "$TARGET/$FOLDER/$INCPREFIX`date +%Y%m%d`.tgz" -g "$SNAPFILE" "$BASE" 1> /dev/null 2>>"$ERRLOG"
+		echo -e "Terminado a las $BOLD`date +%H:%M:%S`$NC"
+		;;
+	
+	restore)
+		restore_main_file
+		restore_inc_files
+		;;
+	
+	help|h|-h|--help)
+		title 
+		help
+		;;
+esac
+
